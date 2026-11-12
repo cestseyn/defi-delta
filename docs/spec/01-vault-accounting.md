@@ -47,7 +47,7 @@ blackout     = [T_e − 30 min, strategy rollover done]  // around every weekly 
 ```
 
 - A request always joins the **open** round. At `cutoff_r` the round closes and the next one opens immediately.
-- A closed round is processed once a NAV report with `timestamp ∈ [cutoff_r, cutoff_r + navMaxDelay]` has been accepted ([02 §7](02-nav-oracle.md#7-cadence)).
+- A closed round is priced with the oracle's **latest** accepted report, which must be timestamped at or after `cutoff_r` ([02 §7](02-nav-oracle.md#7-cadence)). Requiring the latest report means nobody can pick a favorable older one.
 - A scheduled cutoff that falls inside a blackout is skipped, so the open round simply stays open until the next cutoff. On Fridays the 08:00 cutoff is skipped and the 12:00 one is used.
 - **Longest wait:** `roundLength` + processing delay (≈ 20 min). On Fridays the longest wait is 8 h because of the blackout.
 
@@ -77,8 +77,8 @@ struct Round {
 | State | Deposits | Redemptions | Strategy |
 |---|---|---|---|
 | `ACTIVE` | processed | processed | normal |
-| `REDUCE_ONLY` | queued, **not processed** (cancellable) | processed | closing positions ([05 §4](05-risk-and-governance.md#4-breaker)) |
-| `PAUSED` | queued, not processed (cancellable) | processed | no trading |
+| `REDUCE_ONLY` | new requests rejected; deposits already queued are **refunded** at the round (`claimRefund`) | processed | closing positions ([05 §4](05-risk-and-governance.md#4-breaker)) |
+| `PAUSED` | new requests rejected; queued deposits refunded at the round | processed | no trading |
 
 **Redemptions are processed in every state.** Users can always get out at the next round, paid from the buffer, or as soon as the strategy has withdrawn enough from Derive (§6). Resuming `ACTIVE` follows [05 §1](05-risk-and-governance.md#1-roles).
 

@@ -45,7 +45,7 @@ struct NavReport {
   int256      perpQty;             // ETH perp, 18 dp, + = long
   int256      perpUnsettled;       // unrealized PnL + unsettled funding, USDC
   uint64      lastCreditedDeposit; // id of the last vault→Derive deposit reflected in the balances
-  uint256     withdrawalsInFlight; // debited on Derive, not yet received on L1, in the vault asset
+  uint64      lastAppliedWithdrawal; // module withdrawal nonce already debited on Derive
   uint256     deriveMtm;           // Derive risk-engine MtM of the subaccount, USDC
   bytes       feeds;               // Derive-signed spot, forward(T), SVI vol(T), perp feeds, as published by public/get_latest_signed_feeds
 }
@@ -108,7 +108,7 @@ NAV_der  = cash + V_base + V_opt + perpUnsettled                   // value insi
 NAV_$    = NAV_der
          + buffer · S_unit                                         // assets held by the vault on L1 (exact, on-chain)
          + inTransitIn · S_unit                                    // vault→Derive deposits with id > lastCreditedDeposit
-         + withdrawalsInFlight · S_unit                            // Derive→vault, attested
+         + inFlightOut · S_unit                                    // debited on Derive (nonce ≤ lastAppliedWithdrawal), not yet received on L1; computed on-chain from the module's cumulative withdrawals and the vault's cumulative receipts
 NAV      = NAV_$ / S_unit        (S_unit = S for CC, 1 for CSP)
 ```
 
@@ -119,6 +119,9 @@ Liabilities (unclaimed redemption assets, accrued management fee) are subtracted
 ---
 
 ## 5. Continuity
+
+> **Implemented (phase 1):** the continuity check compares *flow-adjusted* value, `navAsset − cumulative deposits credited + cumulative withdrawals debited`, so moving assets between the vault and Derive doesn't look like a jump. It uses `|x| ≤ 1` (no separate theta allowance) and divides by the larger of the two NAVs. Phase 1 values open options at the attested Derive mark (with the haircut); valuing them on-chain with Black-76 and SVI comes with phase 2.
+
 
 A report is **held** rather than accepted if NAV moved more than the market can explain since the last accepted report:
 
@@ -158,7 +161,7 @@ The reporter service ([06](06-offchain-services.md)) publishes a diff of every r
 
 | Purpose | When | Freshness required |
 |---|---|---|
-| Round processing | Right after each round's cutoff | Report `timestamp ≥ cutoff` and `≤ cutoff + navMaxDelay` (default 20 min): **forward pricing**, so no request ever knows its price in advance |
+| Round processing | Right after each round's cutoff | The oracle's latest accepted report, with `timestamp ≥ cutoff`: **forward pricing**, so no request ever knows its price in advance |
 | Breaker | Every `checkpointInterval` (default 1 h), and on demand | ≤ `navMaxAge` |
 | Display | Every 15 min | — |
 
