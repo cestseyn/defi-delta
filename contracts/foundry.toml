@@ -1,0 +1,28 @@
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.28"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+# Keep build output free of machine-specific data: no metadata hash or CBOR trailer in bytecode.
+bytecode_hash = "none"
+cbor_metadata = false
+
+[fuzz]
+runs = 256
+
+[invariant]
+runs = 64
+depth = 64
+fail_on_revert = false
+
+[fmt]
+line_length = 120
+
+[lint]
+lint_on_build = false

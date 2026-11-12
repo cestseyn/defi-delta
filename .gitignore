@@ -18,3 +18,4 @@ __pycache__/
 keystore/
 # OS
 .DS_Store
+contracts/lib/
