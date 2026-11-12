@@ -1,0 +1,8 @@
+#!/bin/sh
+# Anonymity guard: refuse commits with the wrong identity or a non-UTC timezone.
+expected_email="355866033+cestseyn@users.noreply.github.com"
+expected_name="cestseyn"
+[ "$(git config user.email)" = "$expected_email" ] || { echo "pre-commit: user.email must be $expected_email" >&2; exit 1; }
+[ "$(git config user.name)" = "$expected_name" ] || { echo "pre-commit: user.name must be $expected_name" >&2; exit 1; }
+[ "$(date +%z)" = "+0000" ] || { echo "pre-commit: commit with TZ=UTC (e.g. TZ=UTC git commit ...)" >&2; exit 1; }
+exit 0
